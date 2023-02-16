@@ -36,6 +36,7 @@ static int try_merge(struct dns_transmit *d)
   for (i = 0; i < MAXUDP; i++) {
     if (!inprogress[i]) continue;
     if (!merge_equal(d, inprogress[i])) continue;
+    if (inprogress[i]->nslaves == MAXUDP) continue;
     d->master = inprogress[i];
     inprogress[i]->slaves[inprogress[i]->nslaves++] = d;
     return 1;
@@ -128,8 +129,10 @@ static void mergefree(struct dns_transmit *d)
   }
   /* and unregister all of our slaves from us */
   for (i = 0; i < d->nslaves; i++) {
-    if (d->slaves[i])
+    if (d->slaves[i]) {
       d->slaves[i]->master = NULL;
+      d->slaves[i] = 0;
+    }
   }
   d->nslaves = 0;
 }
