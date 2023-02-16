@@ -21,6 +21,7 @@ char *tinydns;
 
 int main(int argc,char **argv)
 {
+  (void)argc;	// unused
   user = argv[1];
   if (!user) usage();
   loguser = argv[2];

@@ -5,10 +5,10 @@
 #include "byte.h"
 #include "socket.h"
 
-int socket_recv4(int s,char *buf,int len,char ip[4],uint16 *port)
+int socket_recv4(int s,char *buf,int len,unsigned char ip[4],uint16 *port)
 {
   struct sockaddr_in sa;
-  int dummy = sizeof sa;
+  socklen_t dummy = sizeof sa;
   int r;
 
   r = recvfrom(s,buf,len,0,(struct sockaddr *) &sa,&dummy);

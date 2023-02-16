@@ -10,6 +10,8 @@
 #include "printpacket.h"
 #include "parsetype.h"
 #include "dns.h"
+#include "ip6.h"
+#include "exit.h"
 
 #define FATAL "dnsq: fatal: "
 
@@ -24,14 +26,14 @@ void oops(void)
 
 static struct dns_transmit tx;
 
-int resolve(char *q,char qtype[2],char servers[64])
+int resolve(char *q,char qtype[2],unsigned char servers[256])
 {
   struct taia stamp;
   struct taia deadline;
   iopause_fd x[1];
   int r;
 
-  if (dns_transmit_start(&tx,servers,0,q,qtype,"\0\0\0\0") == -1) return -1;
+  if (dns_transmit_start(&tx,servers,0,q,qtype,V6any) == -1) return -1;
 
   for (;;) {
     taia_now(&stamp);
@@ -47,7 +49,7 @@ int resolve(char *q,char qtype[2],char servers[64])
   return 0;
 }
 
-char servers[64];
+unsigned char servers[256];
 static stralloc ip;
 static stralloc fqdn;
 
@@ -62,6 +64,8 @@ int main(int argc,char **argv)
 {
   uint16 u16;
 
+  (void)argc;	// unused
+
   dns_random_init(seed);
 
   if (!*argv) usage();
@@ -73,9 +77,9 @@ int main(int argc,char **argv)
 
   if (!*++argv) usage();
   if (!stralloc_copys(&out,*argv)) oops();
-  if (dns_ip4_qualify(&ip,&fqdn,&out) == -1) oops();
-  if (ip.len >= 64) ip.len = 64;
-  byte_zero(servers,64);
+  if (dns_ip6_qualify(&ip,&fqdn,&out) == -1) oops();
+  if (ip.len >= 256) ip.len = 256;
+  byte_zero(servers,256);
   byte_copy(servers,ip.len,ip.s);
 
   if (!stralloc_copys(&out,"")) oops();

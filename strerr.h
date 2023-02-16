@@ -13,6 +13,9 @@ extern void strerr_sysinit(void);
 
 extern const char *strerr(const struct strerr *);
 extern void strerr_warn(const char *,const char *,const char *,const char *,const char *,const char *,const struct strerr *);
+#ifdef __GNUC__
+__attribute__((__noreturn__))
+#endif
 extern void strerr_die(int,const char *,const char *,const char *,const char *,const char *,const char *,const struct strerr *);
 
 #define STRERR(r,se,a) \

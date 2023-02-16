@@ -2,6 +2,7 @@
 #include "uint16.h"
 #include "byte.h"
 #include "dns.h"
+#include "ip6.h"
 
 static char *q = 0;
 
@@ -35,7 +36,7 @@ int dns_name_packet(stralloc *out,const char *buf,unsigned int len)
   return 0;
 }
 
-int dns_name4(stralloc *out,const char ip[4])
+int dns_name4(stralloc *out,const unsigned char ip[4])
 {
   char name[DNS_NAME4_DOMAIN];
 
@@ -44,5 +45,26 @@ int dns_name4(stralloc *out,const char ip[4])
   if (dns_name_packet(out,dns_resolve_tx.packet,dns_resolve_tx.packetlen) == -1) return -1;
   dns_transmit_free(&dns_resolve_tx);
   dns_domain_free(&q);
+  return 0;
+}
+
+int dns_name6_inner(stralloc *out,const unsigned char ip[16],int t)
+{
+  char name[DNS_NAME6_DOMAIN];
+
+  dns_name6_domain(name,ip,t);
+  if (dns_resolve(name,DNS_T_PTR) == -1) return -1;
+  if (dns_name_packet(out,dns_resolve_tx.packet,dns_resolve_tx.packetlen) == -1) return -1;
+  dns_transmit_free(&dns_resolve_tx);
+  dns_domain_free(&q);
+  return 0;
+}
+
+int dns_name6(stralloc *out,const unsigned char ip[16])
+{
+  if (ip6_isv4mapped(ip))
+    return dns_name4(out,ip+12);
+  if (dns_name6_inner(out,ip,DNS_IP6_ARPA)) return -1;
+  if (!out->len) return dns_name6_inner(out,ip,DNS_IP6_INT);
   return 0;
 }

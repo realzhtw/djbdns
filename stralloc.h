@@ -11,8 +11,8 @@ extern int stralloc_copy(stralloc *,const stralloc *);
 extern int stralloc_cat(stralloc *,const stralloc *);
 extern int stralloc_copys(stralloc *,const char *);
 extern int stralloc_cats(stralloc *,const char *);
-extern int stralloc_copyb(stralloc *,const char *,unsigned int);
-extern int stralloc_catb(stralloc *,const char *,unsigned int);
+extern int stralloc_copyb(stralloc *,const void *,unsigned int);
+extern int stralloc_catb(stralloc *,const void *,unsigned int);
 extern int stralloc_append(stralloc *,const char *); /* beware: this takes a pointer to 1 char */
 extern int stralloc_starts(stralloc *,const char *);
 

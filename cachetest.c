@@ -11,11 +11,13 @@ int main(int argc,char **argv)
   unsigned int u;
   uint32 ttl;
 
+  (void)argc;	// unused
+
   if (!cache_init(200)) _exit(111);
 
   if (*argv) ++argv;
 
-  while (x = *argv++) {
+  while ((x = *argv++)) {
     i = str_chr(x,':');
     if (x[i])
       cache_set(x,i,x + i + 1,str_len(x) - i - 1,86400);

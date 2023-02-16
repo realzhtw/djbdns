@@ -5,4 +5,5 @@ void foo()
 {
   DIR *dir;
   struct dirent *d;
+  (void)dir; (void)d;
 }

@@ -5,8 +5,9 @@ DNS should have used LZ77 instead of its own sophomoric compression algorithm.
 #include "error.h"
 #include "dns.h"
 
-unsigned int dns_packet_copy(const char *buf,unsigned int len,unsigned int pos,char *out,unsigned int outlen)
+unsigned int dns_packet_copy(const char *buf,unsigned int len,unsigned int pos,void *dest,unsigned int outlen)
 {
+  char* out=(char*)dest;
   while (outlen) {
     if (pos >= len) { errno = error_proto; return 0; }
     *out = buf[pos++];
@@ -43,24 +44,29 @@ unsigned int dns_packet_getname(const char *buf,unsigned int len,unsigned int po
   unsigned int namelen = 0;
 
   for (;;) {
-    if (pos >= len) goto PROTO; ch = buf[pos++];
+    if (pos >= len) goto PROTO;
+    ch = buf[pos++];
     if (++loop >= 1000) goto PROTO;
 
     if (state) {
-      if (namelen + 1 > sizeof name) goto PROTO; name[namelen++] = ch;
+      if (namelen + 1 > sizeof name) goto PROTO;
+      name[namelen++] = ch;
       --state;
     }
     else {
       while (ch >= 192) {
 	where = ch; where -= 192; where <<= 8;
-	if (pos >= len) goto PROTO; ch = buf[pos++];
+	if (pos >= len) goto PROTO;
+	ch = buf[pos++];
 	if (!firstcompress) firstcompress = pos;
 	pos = where + ch;
-	if (pos >= len) goto PROTO; ch = buf[pos++];
+	if (pos >= len) goto PROTO;
+	ch = buf[pos++];
 	if (++loop >= 1000) goto PROTO;
       }
       if (ch >= 64) goto PROTO;
-      if (namelen + 1 > sizeof name) goto PROTO; name[namelen++] = ch;
+      if (namelen + 1 > sizeof name) goto PROTO;
+      name[namelen++] = ch;
       if (!ch) break;
       state = ch;
     }

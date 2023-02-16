@@ -15,7 +15,7 @@ int respond(char *q,char qtype[2])
 {
   int flaga;
   int flagptr;
-  char ip[4];
+  unsigned char ip[4];
   int j;
 
   flaga = byte_equal(qtype,2,DNS_T_A);

@@ -3,9 +3,9 @@
 
 typedef unsigned short uint16;
 
-extern void uint16_pack(char *,uint16);
-extern void uint16_pack_big(char *,uint16);
-extern void uint16_unpack(const char *,uint16 *);
-extern void uint16_unpack_big(const char *,uint16 *);
+extern void uint16_pack(char dst[2],uint16);
+extern void uint16_pack_big(char dst[2],uint16);
+extern void uint16_unpack(const char src[2],uint16 *);
+extern void uint16_unpack_big(const char src[2],uint16 *);
 
 #endif

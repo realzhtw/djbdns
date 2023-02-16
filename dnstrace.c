@@ -4,6 +4,7 @@
 #include "str.h"
 #include "byte.h"
 #include "ip4.h"
+#include "ip6.h"
 #include "gen_alloc.h"
 #include "gen_allocdefs.h"
 #include "exit.h"
@@ -30,7 +31,7 @@ void usage(void)
 }
 
 static stralloc querystr;
-char ipstr[IP4_FMT];
+char ipstr[IP6_FMT];
 static stralloc tmp;
 
 void printdomain(const char *d)
@@ -42,21 +43,21 @@ void printdomain(const char *d)
 
 static struct dns_transmit tx;
 
-int resolve(char *q,char qtype[2],char ip[4])
+int resolve(char *q,char qtype[2],unsigned char ip[16])
 {
   struct taia start;
   struct taia stamp;
   struct taia deadline;
-  char servers[64];
+  unsigned char servers[256];
   iopause_fd x[1];
   int r;
 
   taia_now(&start);
 
-  byte_zero(servers,64);
-  byte_copy(servers,4,ip);
+  byte_zero(servers,256);
+  byte_copy(servers,16,ip);
 
-  if (dns_transmit_start(&tx,servers,0,q,qtype,"\0\0\0\0") == -1) return -1;
+  if (dns_transmit_start(&tx,servers,0,q,qtype,V6any) == -1) return -1;
 
   for (;;) {
     taia_now(&stamp);
@@ -82,7 +83,7 @@ int resolve(char *q,char qtype[2],char ip[4])
 
 struct address {
   char *owner;
-  char ip[4];
+  unsigned char ip[16];
 } ;
 
 GEN_ALLOC_typedef(address_alloc,struct address,s,len,a)
@@ -117,7 +118,7 @@ struct qt {
   char *owner;
   char type[2];
   char *control;
-  char ip[4];
+  unsigned char ip[16];
 } ;
 
 GEN_ALLOC_typedef(qt_alloc,struct qt,s,len,a)
@@ -126,10 +127,10 @@ GEN_ALLOC_append(qt_alloc,struct qt,s,len,a,i,n,x,30,qt_alloc_readyplus,qt_alloc
 
 static qt_alloc qt;
 
-void qt_add(const char *q,const char type[2],const char *control,const char ip[4])
+void qt_add(const char *q,const char type[2],const char *control,const unsigned char ip[16])
 {
   struct qt x;
-  int i;
+  unsigned int i;
 
   if (!*q) return; /* don't ask the roots about our artificial . host */
 
@@ -137,22 +138,22 @@ void qt_add(const char *q,const char type[2],const char *control,const char ip[4
     if (dns_domain_equal(qt.s[i].owner,q))
       if (dns_domain_equal(qt.s[i].control,control))
         if (byte_equal(qt.s[i].type,2,type))
-	  if (byte_equal(qt.s[i].ip,4,ip))
+	  if (byte_equal(qt.s[i].ip,16,ip))
 	    return;
 
   byte_zero(&x,sizeof x);
   if (!dns_domain_copy(&x.owner,q)) nomem();
   if (!dns_domain_copy(&x.control,control)) nomem();
   byte_copy(x.type,2,type);
-  byte_copy(x.ip,4,ip);
+  byte_copy(x.ip,16,ip);
   if (!qt_alloc_append(&qt,&x)) nomem();
 }
 
 void query_add(const char *owner,const char type[2])
 {
   struct query x;
-  int i;
-  int j;
+  unsigned int i;
+  unsigned int j;
 
   for (i = 0;i < query.len;++i)
     if (dns_domain_equal(query.s[i].owner,owner))
@@ -174,8 +175,8 @@ void query_add(const char *owner,const char type[2])
 void ns_add(const char *owner,const char *server)
 {
   struct ns x;
-  int i;
-  int j;
+  unsigned int i;
+  unsigned int j;
 
   buffer_put(buffer_1,querystr.s,querystr.len);
   buffer_puts(buffer_1,"NS:");
@@ -203,27 +204,30 @@ void ns_add(const char *owner,const char *server)
 	  qt_add(query.s[i].owner,query.s[i].type,owner,address.s[j].ip);
 }
 
-void address_add(const char *owner,const char ip[4])
+void address_add(const char *owner,const unsigned char ip[16])
 {
   struct address x;
-  int i;
-  int j;
+  unsigned int i;
+  unsigned int j;
 
   buffer_put(buffer_1,querystr.s,querystr.len);
   buffer_puts(buffer_1,"A:");
   printdomain(owner);
   buffer_puts(buffer_1,":");
-  buffer_put(buffer_1,ipstr,ip4_fmt(ipstr,ip));
+  if (ip6_isv4mapped(ip))
+    buffer_put(buffer_1,ipstr,ip4_fmt(ipstr,ip+12));
+  else
+    buffer_put(buffer_1,ipstr,ip6_fmt(ipstr,ip));
   buffer_puts(buffer_1,"\n");
 
   for (i = 0;i < address.len;++i)
     if (dns_domain_equal(address.s[i].owner,owner))
-      if (byte_equal(address.s[i].ip,4,ip))
+      if (byte_equal(address.s[i].ip,16,ip))
 	return;
 
   byte_zero(&x,sizeof x);
   if (!dns_domain_copy(&x.owner,owner)) nomem();
-  byte_copy(x.ip,4,ip);
+  byte_copy(x.ip,16,ip);
   if (!address_alloc_append(&address,&x)) nomem();
 
   for (i = 0;i < ns.len;++i)
@@ -247,15 +251,13 @@ static int typematch(const char rtype[2],const char qtype[2])
 
 void parsepacket(const char *buf,unsigned int len,const char *d,const char dtype[2],const char *control)
 {
-  char misc[20];
+  unsigned char misc[20];
   char header[12];
   unsigned int pos;
   uint16 numanswers;
   unsigned int posanswers;
   uint16 numauthority;
-  unsigned int posauthority;
   uint16 numglue;
-  unsigned int posglue;
   uint16 datalen;
   unsigned int rcode;
   int flagout;
@@ -285,17 +287,17 @@ void parsepacket(const char *buf,unsigned int len,const char *d,const char dtype
     pos = dns_packet_getname(buf,len,pos,&t1); if (!pos) goto DIE;
     pos = dns_packet_copy(buf,len,pos,header,10); if (!pos) goto DIE;
     if (dns_domain_equal(t1,d))
-      if (byte_equal(header + 2,2,DNS_C_IN))
+      if (byte_equal(header + 2,2,DNS_C_IN)) {
 	if (typematch(header,dtype))
 	  flagout = 1;
 	else if (typematch(header,DNS_T_CNAME)) {
           if (!dns_packet_getname(buf,len,pos,&cname)) goto DIE;
           flagcname = 1;
 	}
+      }
     uint16_unpack_big(header + 8,&datalen);
     pos += datalen;
   }
-  posauthority = pos;
   for (j = 0;j < numauthority;++j) {
     pos = dns_packet_getname(buf,len,pos,&t1); if (!pos) goto DIE;
     pos = dns_packet_copy(buf,len,pos,header,10); if (!pos) goto DIE;
@@ -308,7 +310,6 @@ void parsepacket(const char *buf,unsigned int len,const char *d,const char dtype
     uint16_unpack_big(header + 8,&datalen);
     pos += datalen;
   }
-  posglue = pos;
 
   if (!flagcname && !rcode && !flagout && flagreferral && !flagsoa)
     if (dns_domain_equal(referral,control) || !dns_domain_suffix(referral,control)) {
@@ -331,7 +332,12 @@ void parsepacket(const char *buf,unsigned int len,const char *d,const char dtype
 	  ns_add(t1,t2);
         }
         else if (typematch(header,DNS_T_A) && datalen == 4) {
-	  if (!dns_packet_copy(buf,len,pos,misc,4)) goto DIE;
+	  if (!dns_packet_copy(buf,len,pos,misc+12,4)) goto DIE;
+	  byte_copy(misc,12,V4mappedprefix);
+	  address_add(t1,misc);
+        }
+        else if (typematch(header,DNS_T_AAAA) && datalen == 16) {
+	  if (!dns_packet_copy(buf,len,pos,misc,16)) goto DIE;
 	  address_add(t1,misc);
         }
       }
@@ -394,10 +400,11 @@ int main(int argc,char **argv)
   static char *q;
   char *control;
   char type[2];
-  char ip[64];
-  int i;
+  unsigned char ip[64];
+  unsigned int i;
   uint16 u16;
 
+  (void)argc;	// unused
   dns_random_init(seed);
 
   if (!stralloc_copys(&querystr,"0:.:.:start:")) nomem();
@@ -419,9 +426,9 @@ int main(int argc,char **argv)
 
   while (*++argv) {
     if (!stralloc_copys(&udn,*argv)) nomem();
-    if (dns_ip4_qualify(&out,&fqdn,&udn) == -1) nomem(); /* XXX */
-    for (i = 0;i + 4 <= out.len;i += 4)
-      address_add("",out.s + i);
+    if (dns_ip6_qualify(&out,&fqdn,&udn) == -1) nomem(); /* XXX */
+    for (i = 0;i + 16 <= out.len;i += 16)
+      address_add("",(const unsigned char*)out.s + i);
   }
 
   for (i = 0;i < qt.len;++i) {
@@ -429,7 +436,7 @@ int main(int argc,char **argv)
     control = qt.s[i].control;
     if (!dns_domain_suffix(q,control)) continue;
     byte_copy(type,2,qt.s[i].type);
-    byte_copy(ip,4,qt.s[i].ip);
+    byte_copy(ip,16,qt.s[i].ip);
 
     if (!stralloc_copys(&querystr,"")) nomem();
     uint16_unpack_big(type,&u16);
@@ -439,7 +446,10 @@ int main(int argc,char **argv)
     if (!stralloc_cats(&querystr,":")) nomem();
     if (!dns_domain_todot_cat(&querystr,control)) nomem();
     if (!stralloc_cats(&querystr,":")) nomem();
-    if (!stralloc_catb(&querystr,ipstr,ip4_fmt(ipstr,ip))) nomem();
+    if (ip6_isv4mapped(ip)) {
+      if (!stralloc_catb(&querystr,ipstr,ip4_fmt(ipstr,ip+12))) nomem();
+    } else
+      if (!stralloc_catb(&querystr,ipstr,ip6_fmt(ipstr,ip))) nomem();
     if (!stralloc_cats(&querystr,":")) nomem();
 
     buffer_put(buffer_1,querystr.s,querystr.len);
@@ -459,12 +469,15 @@ int main(int argc,char **argv)
     if (dns_domain_equal(q,"\011localhost\0")) {
       buffer_put(buffer_1,querystr.s,querystr.len);
       buffer_puts(buffer_1,"ALERT:some caches do not handle localhost internally\n");
-      address_add(q,"\177\0\0\1");
+      address_add(q,(const unsigned char*)"\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\1");
     }
     if (dd(q,"",ip) == 4) {
+      unsigned char ip6[16];
+      byte_copy(ip6,12,V4mappedprefix);
+      byte_copy(ip6+12,4,ip);
       buffer_put(buffer_1,querystr.s,querystr.len);
       buffer_puts(buffer_1,"ALERT:some caches do not handle IP addresses internally\n");
-      address_add(q,ip);
+      address_add(q,ip6);
     }
 
     buffer_flush(buffer_1);

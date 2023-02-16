@@ -21,8 +21,8 @@ static int doit(char *q,char qtype[2])
   int flaga;
   int flagtxt;
   char ch;
-  char reverseip[4];
-  char ip[4];
+  unsigned char reverseip[4];
+  unsigned char ip[4];
   uint32 ipnum;
   int r;
   uint32 dlen;
@@ -34,8 +34,8 @@ static int doit(char *q,char qtype[2])
   if (!flaga && !flagtxt) goto REFUSE;
 
   if (dd(q,base,reverseip) != 4) goto REFUSE;
-  uint32_unpack(reverseip,&ipnum);
-  uint32_pack_big(ip,ipnum);
+  uint32_unpack((char*)reverseip,&ipnum);
+  uint32_pack_big((char*)ip,ipnum);
 
   for (i = 0;i <= 24;++i) {
     ipnum >>= i;
@@ -87,11 +87,12 @@ static int doit(char *q,char qtype[2])
   return 1;
 }
 
-int respond(char *q,char qtype[2],char ip[4])
+int respond(char *q,char qtype[2],unsigned char ip[16])
 {
   int fd;
   int result;
 
+  (void)ip;	// unused
   fd = open_read("data.cdb");
   if (fd == -1) return 0;
   cdb_init(&c,fd);

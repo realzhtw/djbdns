@@ -12,7 +12,7 @@ static char name[NAMES][128];
 static unsigned int name_ptr[NAMES]; /* each < 16384 */
 static unsigned int name_num;
 
-int response_addbytes(const char *buf,unsigned int len)
+int response_addbytes(const void *buf,unsigned int len)
 {
   if (len > 65535 - response_len) return 0;
   byte_copy(response + response_len,len,buf);

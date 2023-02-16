@@ -1,5 +1,9 @@
 #include "auto_home.h"
 
+extern void h(const char* home,int uid,int gid,int mode);
+extern void d(const char* home,const char* subdir,int uid,int gid,int mode);
+extern void c(const char* home,const char* subdir,const char* file,int uid,int gid,int mode);
+
 void hier()
 {
   c("/","etc","dnsroots.global",-1,-1,0644);
@@ -29,7 +33,9 @@ void hier()
   c(auto_home,"bin","axfr-get",-1,-1,0755);
 
   c(auto_home,"bin","dnsip",-1,-1,0755);
+  c(auto_home,"bin","dnsip6",-1,-1,0755);
   c(auto_home,"bin","dnsipq",-1,-1,0755);
+  c(auto_home,"bin","dnsip6q",-1,-1,0755);
   c(auto_home,"bin","dnsname",-1,-1,0755);
   c(auto_home,"bin","dnstxt",-1,-1,0755);
   c(auto_home,"bin","dnsmx",-1,-1,0755);

@@ -47,7 +47,7 @@ void die_datatmp(void)
 
 int main()
 {
-  char ip[4];
+  unsigned char ip[4];
   unsigned long u;
   unsigned int j;
   unsigned int k;

@@ -20,7 +20,7 @@ static struct cdb c;
 static char key[258];
 static char data[512];
 
-static int doit(char *q,char qtype[2],char ip[4])
+static int doit(char *q,char qtype[2],char ip[16])
 {
   int r;
   uint32 dlen;
@@ -37,7 +37,7 @@ static int doit(char *q,char qtype[2],char ip[4])
   if (!flaga && !flagmx) goto REFUSE;
 
   key[0] = '%';
-  byte_copy(key + 1,4,ip);
+  byte_copy(key + 1,4,ip+12);
 
   r = cdb_find(&c,key,5);
   if (!r) r = cdb_find(&c,key,4);
@@ -66,7 +66,7 @@ static int doit(char *q,char qtype[2],char ip[4])
   if (cdb_read(&c,data,dlen,cdb_datapos(&c)) == -1) return 0;
 
   if (flaga) {
-    dns_sortip(data,dlen);
+    dns_sortip((unsigned char*)data,dlen);
     if (dlen > 12) dlen = 12;
     while (dlen >= 4) {
       dlen -= 4;
@@ -86,7 +86,7 @@ static int doit(char *q,char qtype[2],char ip[4])
   return 1;
 }
 
-int respond(char *q,char qtype[2],char ip[4])
+int respond(char *q,char qtype[2],char ip[16])
 {
   int fd;
   int result;

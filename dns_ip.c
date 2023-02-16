@@ -30,7 +30,7 @@ int dns_ip4_packet(stralloc *out,const char *buf,unsigned int len)
     pos += datalen;
   }
 
-  dns_sortip(out->s,out->len);
+  dns_sortip((unsigned char*)out->s,out->len);
   return 0;
 }
 

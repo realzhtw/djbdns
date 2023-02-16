@@ -23,9 +23,11 @@ char strnum[FMT_ULONG];
 
 int main(int argc,char **argv)
 {
-  int i;
-  int j;
+  unsigned int i;
+  unsigned int j;
   uint16 pref;
+
+  (void)argc;	// unused
 
   dns_random_init(seed);
 

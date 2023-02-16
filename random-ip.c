@@ -20,6 +20,8 @@ int main(int argc,char **argv)
   int j;
   unsigned char c;
 
+  (void)argc;	// unused
+
   dns_random_init(seed);
 
   for (i = 0;i < 256;++i) tab[i] = i;

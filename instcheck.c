@@ -15,10 +15,10 @@ char *prefix1;
 char *prefix2;
 char *prefix3;
 char *file;
-int type;
-int uid;
-int gid;
-int mode;
+mode_t type;
+uid_t uid;
+gid_t gid;
+mode_t mode;
 {
   struct stat st;
 
@@ -30,9 +30,9 @@ int mode;
     return;
   }
 
-  if ((uid != -1) && (st.st_uid != uid))
+  if ((uid != (uid_t)-1) && (st.st_uid != uid))
     strerr_warn6(WARNING,prefix1,prefix2,prefix3,file," has wrong owner",0);
-  if ((gid != -1) && (st.st_gid != gid))
+  if ((gid != (uid_t)-1) && (st.st_gid != gid))
     strerr_warn6(WARNING,prefix1,prefix2,prefix3,file," has wrong group",0);
   if ((st.st_mode & 07777) != mode)
     strerr_warn6(WARNING,prefix1,prefix2,prefix3,file," has wrong permissions",0);
@@ -96,6 +96,7 @@ int uid;
 int gid;
 int mode;
 {
+  (void)len;	// unused
   if (chdir(home) == -1)
     strerr_die4sys(111,FATAL,"unable to switch to ",home,": ");
   perm("",home,"/",file,S_IFREG,uid,gid,mode);

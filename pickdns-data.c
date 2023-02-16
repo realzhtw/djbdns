@@ -47,7 +47,7 @@ void ipprefix_cat(stralloc *out,char *s)
 struct address {
   char *name;
   unsigned int namelen;
-  char ip[4];
+  unsigned char ip[4];
   char location[2];
 } ;
 
@@ -129,8 +129,8 @@ void die_datatmp(void)
 int main()
 {
   struct address t;
-  int i;
-  int j;
+  unsigned int i;
+  unsigned int j;
   int k;
   char ch;
 

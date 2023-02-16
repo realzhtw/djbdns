@@ -65,6 +65,8 @@ void seed_addtime(void)
 
 int main(int argc,char **argv)
 {
+  (void)argc;	// unused
+
   seed_addtime();
   seed_adduint32(getpid());
   seed_adduint32(getppid());

@@ -8,6 +8,7 @@
 #include "byte.h"
 #include "fmt.h"
 #include "ip4.h"
+#include "ip6.h"
 #include "exit.h"
 #include "case.h"
 #include "scan.h"
@@ -65,16 +66,23 @@ void ipprefix_cat(stralloc *out,char *s)
   char ch;
   unsigned int j;
 
-  for (;;)
-    if (*s == '.')
-      ++s;
-    else {
-      j = scan_ulong(s,&u);
-      if (!j) return;
-      s += j;
-      ch = u;
-      if (!stralloc_catb(out,&ch,1)) nomem();
-    }
+  if (*s=='s') {
+    ++s;
+    if (!stralloc_catb(out,"s",1) || !stralloc_cats(out,s)) nomem();
+  } else {
+    if (*s=='f') ++s;
+    if (!stralloc_catb(out,"f",1)) nomem();
+    for (;;)
+      if (*s == '.')
+	++s;
+      else {
+	j = scan_ulong(s,&u);
+	if (!j) return;
+	s += j;
+	ch = u;
+	if (!stralloc_catb(out,&ch,1)) nomem();
+      }
+  }
 }
 
 void txtparse(stralloc *sa)
@@ -172,6 +180,7 @@ static stralloc f[NUMFIELDS];
 static char *d1;
 static char *d2;
 char dptr[DNS_NAME4_DOMAIN];
+char d6ptr[DNS_NAME6_DOMAIN];
 
 char strnum[FMT_ULONG];
 
@@ -181,18 +190,27 @@ void syntaxerror(const char *why)
   strerr_die4x(111,FATAL,"unable to parse data line ",strnum,why);
 }
 
+static unsigned int scan_u32(const char *s,uint32 *u) {
+  unsigned long l;
+  unsigned int r=scan_ulong(s,&l);
+  if ((uint32)l != l) return 0;
+  if (r) *u=l;
+  return r;
+}
+
 int main()
 {
   int fddata;
-  int i;
-  int j;
+  unsigned int i;
+  unsigned int j;
   int k;
   char ch;
   unsigned long ttl;
   char ttd[8];
   char loc[2];
-  unsigned long u;
-  char ip[4];
+  uint32 u;
+  unsigned char ip[4];
+  unsigned char ip6[16];
   char type[2];
   char soa[20];
   char buf[4];
@@ -251,19 +269,19 @@ int main()
 	if (!dns_domain_fromdot(&d1,f[0].s,f[0].len)) nomem();
 
 	if (!stralloc_0(&f[3])) nomem();
-	if (!scan_ulong(f[3].s,&u)) uint32_unpack_big(defaultsoa,&u);
+	if (!scan_u32(f[3].s,&u)) uint32_unpack_big(defaultsoa,&u);
 	uint32_pack_big(soa,u);
 	if (!stralloc_0(&f[4])) nomem();
-	if (!scan_ulong(f[4].s,&u)) uint32_unpack_big(defaultsoa + 4,&u);
+	if (!scan_u32(f[4].s,&u)) uint32_unpack_big(defaultsoa + 4,&u);
 	uint32_pack_big(soa + 4,u);
 	if (!stralloc_0(&f[5])) nomem();
-	if (!scan_ulong(f[5].s,&u)) uint32_unpack_big(defaultsoa + 8,&u);
+	if (!scan_u32(f[5].s,&u)) uint32_unpack_big(defaultsoa + 8,&u);
 	uint32_pack_big(soa + 8,u);
 	if (!stralloc_0(&f[6])) nomem();
-	if (!scan_ulong(f[6].s,&u)) uint32_unpack_big(defaultsoa + 12,&u);
+	if (!scan_u32(f[6].s,&u)) uint32_unpack_big(defaultsoa + 12,&u);
 	uint32_pack_big(soa + 12,u);
 	if (!stralloc_0(&f[7])) nomem();
-	if (!scan_ulong(f[7].s,&u)) uint32_unpack_big(defaultsoa + 16,&u);
+	if (!scan_u32(f[7].s,&u)) uint32_unpack_big(defaultsoa + 16,&u);
 	uint32_pack_big(soa + 16,u);
 
 	if (!stralloc_0(&f[8])) nomem();
@@ -310,7 +328,7 @@ int main()
 
 	if (ip4_scan(f[1].s,ip)) {
 	  rr_start(DNS_T_A,ttl,ttd,loc);
-	  rr_add(ip,4);
+	  rr_add((const char*)ip,4);
 	  rr_finish(d2);
 	}
 
@@ -327,7 +345,7 @@ int main()
 
 	if (ip4_scan(f[1].s,ip)) {
 	  rr_start(DNS_T_A,ttl,ttd,loc);
-	  rr_add(ip,4);
+	  rr_add((const char*)ip,4);
 	  rr_finish(d1);
 
 	  if (line.s[0] == '=') {
@@ -335,6 +353,33 @@ int main()
 	    rr_start(DNS_T_PTR,ttl,ttd,loc);
 	    rr_addname(d1);
 	    rr_finish(dptr);
+	  }
+	}
+	break;
+
+      case '6': case '3':
+	if (!dns_domain_fromdot(&d1,f[0].s,f[0].len)) nomem();
+	if (!stralloc_0(&f[2])) nomem();
+	if (!scan_ulong(f[2].s,&ttl)) ttl = TTL_POSITIVE;
+	ttdparse(&f[3],ttd);
+	locparse(&f[4],loc);
+
+	if (!stralloc_0(&f[1])) nomem();
+	if (ip6_scan_flat(f[1].s,ip6)) {
+	  rr_start(DNS_T_AAAA,ttl,ttd,loc);
+	  rr_add((const char*)ip6,16);
+	  rr_finish(d1);
+
+	  if (line.s[0] == '6') {	/* emit both .ip6.arpa and .ip6.int */
+	    dns_name6_domain(d6ptr,ip6,DNS_IP6_ARPA);
+	    rr_start(DNS_T_PTR,ttl,ttd,loc);
+	    rr_addname(d1);
+	    rr_finish(d6ptr);
+
+	    dns_name6_domain(d6ptr,ip6,DNS_IP6_INT);
+	    rr_start(DNS_T_PTR,ttl,ttd,loc);
+	    rr_addname(d1);
+	    rr_finish(d6ptr);
 	  }
 	}
 	break;
@@ -355,7 +400,7 @@ int main()
 	if (!dns_domain_fromdot(&d2,f[2].s,f[2].len)) nomem();
 
 	if (!stralloc_0(&f[3])) nomem();
-	if (!scan_ulong(f[3].s,&u)) u = 0;
+	if (!scan_u32(f[3].s,&u)) u = 0;
 
 	rr_start(DNS_T_MX,ttl,ttd,loc);
 	uint16_pack_big(buf,u);
@@ -365,7 +410,7 @@ int main()
 
 	if (ip4_scan(f[1].s,ip)) {
 	  rr_start(DNS_T_A,ttl,ttd,loc);
-	  rr_add(ip,4);
+	  rr_add((const char*)ip,4);
 	  rr_finish(d2);
 	}
 	break;
@@ -417,7 +462,7 @@ int main()
 	locparse(&f[5],loc);
 
 	if (!stralloc_0(&f[1])) nomem();
-	scan_ulong(f[1].s,&u);
+	scan_u32(f[1].s,&u);
 	uint16_pack_big(type,u);
 	if (byte_equal(type,2,DNS_T_AXFR))
 	  syntaxerror(": type AXFR prohibited");

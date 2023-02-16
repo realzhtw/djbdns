@@ -13,6 +13,7 @@
 #include "byte.h"
 #include "str.h"
 #include "ip4.h"
+#include "ip6.h"
 #include "timeoutread.h"
 #include "timeoutwrite.h"
 #include "dns.h"
@@ -215,7 +216,15 @@ unsigned int doit(char *buf,unsigned int len,unsigned int pos)
     if (!dns_domain_todot_cat(&line,d1)) return 0;
     if (!stralloc_cats(&line,":")) return 0;
     x_copy(buf,len,pos,data,4);
-    if (!stralloc_catb(&line,ipstr,ip4_fmt(ipstr,data))) return 0;
+    if (!stralloc_catb(&line,ipstr,ip4_fmt(ipstr,(const unsigned char*)data))) return 0;
+  }
+  else if (byte_equal(data,2,DNS_T_AAAA)) {
+    char ipstr[IP6_FMT];
+    if (!stralloc_copys(&line,"3")) return 0;
+    if (!dns_domain_todot_cat(&line,d1)) return 0;
+    if (!stralloc_cats(&line,":")) return 0;
+    x_copy(buf,len,pos,data,16);
+    if (!stralloc_catb(&line,ipstr,ip6_fmt_flat(ipstr,(const unsigned char*)data))) return 0;
   }
   else {
     unsigned char ch;
@@ -262,6 +271,8 @@ int main(int argc,char **argv)
   uint32 newserial = 0;
   uint16 numqueries;
   uint16 numanswers;
+
+  (void)argc;	// unused
 
   if (!*argv) die_usage();
 

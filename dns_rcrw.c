@@ -13,7 +13,7 @@ static int init(stralloc *rules)
   char host[256];
   const char *x;
   int i;
-  int j;
+  unsigned int j;
   int k;
 
   if (!stralloc_copys(rules,"")) return -1;
@@ -72,7 +72,7 @@ static int init(stralloc *rules)
         if (byte_equal("search ",7,data.s + i) || byte_equal("search\t",7,data.s + i) || byte_equal("domain ",7,data.s + i) || byte_equal("domain\t",7,data.s + i)) {
           if (!stralloc_copys(rules,"?:")) return -1;
           i += 7;
-          while (i < j) {
+          while ((size_t)i < j) {
             k = byte_chr(data.s + i,j - i,' ');
             k = byte_chr(data.s + i,k,'\t');
             if (!k) { ++i; continue; }

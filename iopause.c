@@ -7,7 +7,7 @@ void iopause(iopause_fd *x,unsigned int len,struct taia *deadline,struct taia *s
   struct taia t;
   int millisecs;
   double d;
-  int i;
+  unsigned int i;
 
   if (taia_less(deadline,stamp))
     millisecs = 0;
@@ -45,7 +45,7 @@ void iopause(iopause_fd *x,unsigned int len,struct taia *deadline,struct taia *s
   for (i = 0;i < len;++i) {
     fd = x[i].fd;
     if (fd < 0) continue;
-    if (fd >= 8 * sizeof(fd_set)) continue; /*XXX*/
+    if ((size_t)fd >= 8 * sizeof(fd_set)) continue; /*XXX*/
 
     if (fd >= nfds) nfds = fd + 1;
     if (x[i].events & IOPAUSE_READ) FD_SET(fd,&rfds);
@@ -62,7 +62,7 @@ void iopause(iopause_fd *x,unsigned int len,struct taia *deadline,struct taia *s
   for (i = 0;i < len;++i) {
     fd = x[i].fd;
     if (fd < 0) continue;
-    if (fd >= 8 * sizeof(fd_set)) continue; /*XXX*/
+    if ((size_t)fd >= 8 * sizeof(fd_set)) continue; /*XXX*/
 
     if (x[i].events & IOPAUSE_READ)
       if (FD_ISSET(fd,&rfds)) x[i].revents |= IOPAUSE_READ;

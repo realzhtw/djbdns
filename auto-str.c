@@ -4,9 +4,10 @@
 char bspace[256];
 buffer b = BUFFER_INIT(buffer_unixwrite,1,bspace,sizeof bspace);
 
-void puts(const char *s)
+int puts(const char *s)
 {
   if (buffer_puts(&b,s) == -1) _exit(111);
+  return 0;
 }
 
 int main(int argc,char **argv)
@@ -15,6 +16,8 @@ int main(int argc,char **argv)
   char *value;
   unsigned char ch;
   char octal[4];
+
+  (void)argc;
 
   name = argv[1];
   if (!name) _exit(100);
@@ -25,7 +28,7 @@ int main(int argc,char **argv)
   puts(name);
   puts("[] = \"\\\n");
 
-  while (ch = *value++) {
+  while ((ch = *value++)) {
     puts("\\");
     octal[3] = 0;
     octal[2] = '0' + (ch & 7); ch >>= 3;

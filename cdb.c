@@ -34,7 +34,7 @@ void cdb_init(struct cdb *c,int fd)
   if (fstat(fd,&st) == 0)
     if (st.st_size <= 0xffffffff) {
       x = mmap(0,st.st_size,PROT_READ,MAP_SHARED,fd,0);
-      if (x + 1) {
+      if (x != MAP_FAILED) {
 	c->size = st.st_size;
 	c->map = x;
       }
@@ -70,7 +70,7 @@ int cdb_read(struct cdb *c,char *buf,unsigned int len,uint32 pos)
 static int match(struct cdb *c,const char *key,unsigned int len,uint32 pos)
 {
   char buf[32];
-  int n;
+  unsigned int n;
 
   while (len > 0) {
     n = sizeof buf;

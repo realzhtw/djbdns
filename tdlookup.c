@@ -8,6 +8,8 @@
 #include "dns.h"
 #include "seek.h"
 #include "response.h"
+#include "ip6.h"
+#include "clientloc.h"
 
 static int want(const char *owner,const char type[2])
 {
@@ -61,7 +63,7 @@ static int find(char *d,int flagwild)
     if (cdb_read(&c,data,dlen,cdb_datapos(&c)) == -1) return -1;
     dpos = dns_packet_copy(data,dlen,0,type,2); if (!dpos) return -1;
     dpos = dns_packet_copy(data,dlen,dpos,&ch,1); if (!dpos) return -1;
-    if ((ch == '=' + 1) || (ch == '*' + 1)) {
+    if ((ch == '=' + 1) || (ch == '*' + 1) || (ch == '6' + 1)) {
       --ch;
       dpos = dns_packet_copy(data,dlen,dpos,recordloc,2); if (!dpos) return -1;
       if (byte_diff(recordloc,2,clientloc)) continue;
@@ -119,8 +121,9 @@ static int doit(char *q,char qtype[2])
   char x[20];
   uint16 u16;
   char addr[8][4];
-  int addrnum;
-  uint32 addrttl;
+  char addr6[8][16];
+  int addrnum,addr6num;
+  uint32 addrttl,addr6ttl;
   int i;
 
   anpos = response_len;
@@ -130,7 +133,7 @@ static int doit(char *q,char qtype[2])
     flagns = 0;
     flagauthoritative = 0;
     cdb_findstart(&c);
-    while (r = find(control,0)) {
+    while ((r = find(control,0))) {
       if (r == -1) return 0;
       if (byte_equal(type,2,DNS_T_SOA)) flagauthoritative = 1;
       if (byte_equal(type,2,DNS_T_NS)) flagns = 1;
@@ -152,10 +155,10 @@ static int doit(char *q,char qtype[2])
   wild = q;
 
   for (;;) {
-    addrnum = 0;
-    addrttl = 0;
+    addrnum = addr6num = 0;
+    addrttl = addr6ttl = 0;
     cdb_findstart(&c);
-    while (r = find(wild,wild != q)) {
+    while ((r = find(wild,wild != q))) {
       if (r == -1) return 0;
       flagfound = 1;
       if (flaggavesoa && byte_equal(type,2,DNS_T_SOA)) continue;
@@ -169,6 +172,17 @@ static int doit(char *q,char qtype[2])
 	  byte_copy(addr[i],4,data + dpos);
 	}
 	if (addrnum < 1000000) ++addrnum;
+	continue;
+      }
+      if (byte_equal(type,2,DNS_T_AAAA) && (dlen - dpos == 16)) {
+	addr6ttl = ttl;
+	i = dns_random(addr6num + 1);
+	if (i < 8) {
+	  if ((i < addr6num) && (addr6num < 8))
+	    byte_copy(addr6[addr6num],16,addr6[i]);
+	  byte_copy(addr6[i],16,data + dpos);
+	}
+	if (addr6num < 1000000) ++addr6num;
 	continue;
       }
       if (!response_rstart(q,type,ttl)) return 0;
@@ -195,6 +209,12 @@ static int doit(char *q,char qtype[2])
 	if (!response_addbytes(addr[i],4)) return 0;
 	response_rfinish(RESPONSE_ANSWER);
       }
+    for (i = 0;i < addr6num;++i)
+      if (i < 8) {
+	if (!response_rstart(q,DNS_T_AAAA,addr6ttl)) return 0;
+	if (!response_addbytes(addr6[i],16)) return 0;
+	response_rfinish(RESPONSE_ANSWER);
+      }
 
     if (flagfound) break;
     if (wild == control) break;
@@ -212,7 +232,7 @@ static int doit(char *q,char qtype[2])
 
   if (flagauthoritative && (aupos == anpos)) {
     cdb_findstart(&c);
-    while (r = find(control,0)) {
+    while ((r = find(control,0))) {
       if (r == -1) return 0;
       if (byte_equal(type,2,DNS_T_SOA)) {
         if (!response_rstart(control,DNS_T_SOA,ttl)) return 0;
@@ -227,7 +247,7 @@ static int doit(char *q,char qtype[2])
   else
     if (want(control,DNS_T_NS)) {
       cdb_findstart(&c);
-      while (r = find(control,0)) {
+      while ((r = find(control,0))) {
         if (r == -1) return 0;
         if (byte_equal(type,2,DNS_T_NS)) {
           if (!response_rstart(control,DNS_T_NS,ttl)) return 0;
@@ -252,11 +272,16 @@ static int doit(char *q,char qtype[2])
       case_lowerb(d1,dns_domain_length(d1));
       if (want(d1,DNS_T_A)) {
 	cdb_findstart(&c);
-	while (r = find(d1,0)) {
+	while ((r = find(d1,0))) {
           if (r == -1) return 0;
 	  if (byte_equal(type,2,DNS_T_A)) {
             if (!response_rstart(d1,DNS_T_A,ttl)) return 0;
 	    if (!dobytes(4)) return 0;
+            response_rfinish(RESPONSE_ADDITIONAL);
+	  }
+	  else if (byte_equal(type,2,DNS_T_AAAA)) {
+            if (!response_rstart(d1,DNS_T_AAAA,ttl)) return 0;
+	    if (!dobytes(16)) return 0;
             response_rfinish(RESPONSE_ADDITIONAL);
 	  }
         }
@@ -278,29 +303,17 @@ static int doit(char *q,char qtype[2])
   return 1;
 }
 
-int respond(char *q,char qtype[2],char ip[4])
+int respond(char *q,char qtype[2],char unsigned ip[16])
 {
   int fd;
   int r;
-  char key[6];
+
+  find_client_loc(clientloc, ip);
 
   tai_now(&now);
   fd = open_read("data.cdb");
   if (fd == -1) return 0;
   cdb_init(&c,fd);
-
-  byte_zero(clientloc,2);
-  key[0] = 0;
-  key[1] = '%';
-  byte_copy(key + 2,4,ip);
-  r = cdb_find(&c,key,6);
-  if (!r) r = cdb_find(&c,key,5);
-  if (!r) r = cdb_find(&c,key,4);
-  if (!r) r = cdb_find(&c,key,3);
-  if (!r) r = cdb_find(&c,key,2);
-  if (r == -1) return 0;
-  if (r && (cdb_datalen(&c) == 2))
-    if (cdb_read(&c,clientloc,2,cdb_datapos(&c)) == -1) return 0;
 
   r = doit(q,qtype);
 

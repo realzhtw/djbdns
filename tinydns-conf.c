@@ -20,6 +20,7 @@ char *myip;
 
 int main(int argc,char **argv)
 {
+  (void)argc;	// unused
   user = argv[1];
   if (!user) usage();
   loguser = argv[2];
@@ -79,6 +80,18 @@ int main(int argc,char **argv)
   start("root/add-alias");
   outs("#!/bin/sh\nexec ");
   outs(auto_home); outs("/bin/tinydns-edit data data.new add alias ${1+\"$@\"}\n");
+  finish();
+  perm(0755);
+
+  start("root/add-host6");
+  outs("#!/bin/sh\nexec ");
+  outs(auto_home); outs("/bin/tinydns-edit data data.new add host6 ${1+\"$@\"}\n");
+  finish();
+  perm(0755);
+
+  start("root/add-alias6");
+  outs("#!/bin/sh\nexec ");
+  outs(auto_home); outs("/bin/tinydns-edit data data.new add alias6 ${1+\"$@\"}\n");
   finish();
   perm(0755);
 

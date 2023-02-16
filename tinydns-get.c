@@ -11,9 +11,10 @@
 #include "printpacket.h"
 #include "parsetype.h"
 #include "ip4.h"
+#include "ip6.h"
 #include "dns.h"
 
-extern int respond(char *,char *,char *);
+extern int respond(char *,char *,unsigned char ip[16]);
 
 #define FATAL "tinydns-get: fatal: "
 
@@ -26,7 +27,7 @@ void oops(void)
   strerr_die2sys(111,FATAL,"unable to parse: ");
 }
 
-static char ip[4];
+static unsigned char ip[16];
 static char type[2];
 static char *q;
 
@@ -36,6 +37,7 @@ int main(int argc,char **argv)
 {
   uint16 u16;
 
+  (void)argc;	// unused
   if (!*argv) usage();
 
   if (!*++argv) usage();
@@ -45,7 +47,7 @@ int main(int argc,char **argv)
   if (!dns_domain_fromdot(&q,*argv,str_len(*argv))) oops();
 
   if (*++argv) {
-    if (!ip4_scan(*argv,ip)) usage();
+    if (!ip6_scan(*argv,ip)) usage();
   }
 
   if (!stralloc_copys(&out,"")) oops();

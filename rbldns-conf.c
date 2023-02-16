@@ -21,6 +21,7 @@ char *base;
 
 int main(int argc,char **argv)
 {
+  (void)argc;
   user = argv[1];
   if (!user) usage();
   loguser = argv[2];

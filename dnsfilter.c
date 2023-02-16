@@ -12,6 +12,7 @@
 #include "iopause.h"
 #include "error.h"
 #include "exit.h"
+#include "ip6.h"
 
 #define FATAL "dnsfilter: fatal: "
 
@@ -37,20 +38,20 @@ unsigned int maxactive = 10;
 static stralloc partial;
 
 char inbuf[1024];
-int inbuflen = 0;
+unsigned int inbuflen = 0;
 iopause_fd *inio;
 int flag0 = 1;
 
 iopause_fd *io;
 int iolen;
 
-char servers[64];
-char ip[4];
+unsigned char servers[256];
+unsigned char ip[4];
 char name[DNS_NAME4_DOMAIN];
 
 void errout(int i)
 {
-  int j;
+  unsigned int j;
 
   if (!stralloc_copys(&x[i].middle,":")) nomem();
   if (!stralloc_cats(&x[i].middle,error_str(errno))) nomem();
@@ -65,8 +66,8 @@ int main(int argc,char **argv)
   struct taia deadline;
   int opt;
   unsigned long u;
-  int i;
-  int j;
+  unsigned int i;
+  unsigned int j;
   int r;
 
   while ((opt = getopt(argc,argv,"c:l:")) != opteof)
@@ -191,7 +192,7 @@ int main(int argc,char **argv)
 	      dns_name4_domain(name,ip);
 	      if (dns_resolvconfip(servers) == -1)
 	        strerr_die2sys(111,FATAL,"unable to read /etc/resolv.conf: ");
-	      if (dns_transmit_start(&x[xnum].dt,servers,1,name,DNS_T_PTR,"\0\0\0\0") == -1)
+	      if (dns_transmit_start(&x[xnum].dt,servers,1,name,DNS_T_PTR,V6any) == -1)
 	        errout(xnum);
 	      else {
 	        x[xnum].flagactive = 1;

@@ -9,6 +9,7 @@
 #include "printpacket.h"
 #include "parsetype.h"
 #include "dns.h"
+#include "exit.h"
 
 #define FATAL "dnsqr: fatal: "
 
@@ -31,6 +32,8 @@ static char seed[128];
 int main(int argc,char **argv)
 {
   uint16 u16;
+
+  (void)argc;	// unused
 
   dns_random_init(seed);
 
