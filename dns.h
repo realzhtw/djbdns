@@ -4,6 +4,7 @@
 #include "stralloc.h"
 #include "iopause.h"
 #include "taia.h"
+#include "clients.h"
 
 #define DNS_C_IN "\0\1"
 #define DNS_C_ANY "\0\377"
@@ -38,7 +39,12 @@ struct dns_transmit {
   unsigned char localip[16];
   unsigned int scope_id;
   char qtype[2];
+  struct dns_transmit *master;
+  struct dns_transmit *slaves[MAXUDP];
+  int nslaves;
 } ;
+
+extern void dns_enable_merge(void (*logger)(const char *, const char *, const char *));
 
 extern void dns_random_init(const char data[128]);
 extern unsigned int dns_random(unsigned int);

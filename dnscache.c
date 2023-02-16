@@ -60,7 +60,6 @@ uint64 numqueries = 0;
 
 static int udp53;
 
-#define MAXUDP 200
 static struct udpclient {
   struct query q;
   struct taia start;
@@ -137,7 +136,6 @@ void u_new(void)
 
 static int tcp53;
 
-#define MAXTCP 20
 struct tcpclient {
   struct query q;
   struct taia start;
@@ -468,6 +466,8 @@ int main()
     response_hidettl();
   if (env_get("FORWARDONLY"))
     query_forwardonly();
+  if (env_get("MERGEQUERIES"))
+    dns_enable_merge(log_merge);
 
   if (!roots_init())
     strerr_die2sys(111,FATAL,"unable to read servers: ");

@@ -149,6 +149,12 @@ void log_tx(const char *q,const char qtype[2],const char *control,const unsigned
   line();
 }
 
+void log_merge(const char *addr, const char qtype[2], const char *q)
+{
+  string("merge "); ip(addr); space(); logtype(qtype); space(); name(q);
+  line();
+}
+
 void log_cachedanswer(const char *q,const char type[2])
 {
   string("cached "); logtype(type); space();
